@@ -1,0 +1,22 @@
+# Build output
+.gradle/
+build/
+target/
+out/
+*.class
+
+# IDE and local configuration
+.idea/
+*.iml
+.vscode/
+.env
+.env.*
+!.env.example
+application-local.properties
+application-local.yml
+application-local.yaml
+
+# Logs and OS files
+*.log
+.DS_Store
+Thumbs.db
