@@ -5,7 +5,7 @@ Java와 백엔드 개발을 기능 구현에 연결해 학습하고, 코드 리�
 
 ## 현재 상태
 
-기획 단계이며 공개 GitHub 저장소를 생성했습니다. 애플리케이션은 아직 구현하지 않았습니다.
+공개 GitHub 저장소와 기획 문서를 준비했으며, 최소 Spring Boot 서버의 개발환경을 구성했습니다. 게시글·회원 기능은 아직 구현하지 않았습니다.
 저장소: https://github.com/Jinhyukpark56/dev-study-community
 
 ## 기획 문서
@@ -76,4 +76,26 @@ Java/Spring Boot 버전, 빌드 도구, 데이터베이스, 로그인 방식은 
 - 게시글부터 구현하고 회원 권한을 붙이는 순서가 적절한가?
 - 기술 선택과 첫 이슈의 크기는 적절한가?
 
-실행 방법은 개발환경 구성이 완료되면 추가합니다.
+## 개발환경과 실행
+
+- JDK 21
+- Spring Boot 4.1.1
+- Gradle 9.7.1 (Wrapper 포함, 별도 Gradle 설치 불필요)
+- VSCode Java 확장 또는 Java IDE
+
+프로젝트 폴더에서 PowerShell로 실행합니다.
+
+```powershell
+.\gradlew.bat bootRun
+```
+
+브라우저에서 http://localhost:8080/health 를 열면 `ok`가 표시됩니다. 종료는 실행한 터미널에서 Ctrl+C입니다.
+현재 `/health`는 서버 실행 확인용이며 게시글 API는 아직 없습니다. 루트 `/`의 404는 현재 정상입니다.
+
+```powershell
+.\gradlew.bat test
+.\gradlew.bat bootJar
+```
+
+처음 실행할 때 Gradle과 의존성을 다운로드하므로 인터넷 연결이 필요합니다.
+데이터베이스 설정은 아직 필요하지 않습니다.
