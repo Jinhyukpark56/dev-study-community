@@ -5,8 +5,31 @@ Java와 백엔드 개발을 기능 구현에 연결해 학습하고, 코드 리�
 
 ## 현재 상태
 
-공개 GitHub 저장소와 기획 문서를 준비했으며, 최소 Spring Boot 서버의 개발환경을 구성했습니다. 게시글·회원 기능은 아직 구현하지 않았습니다.
+Java 21 / Spring Boot 최소 서버에 학습용 메모리 게시글 CRUD와 입력 검증을 구현했습니다. 게시글 API·DB 연결·회원 기능은 아직 구현하지 않았습니다.
 저장소: https://github.com/Jinhyukpark56/dev-study-community
+
+### 메모리 게시글 구현 (2026-09-12)
+
+- `Post`: private id/title/content, 생성자, Getter, title/content Setter. ID는 생성 시 지정하며 변경할 수 없습니다.
+- `PostService`: 내부 `List<Post>`로 등록·ID 조회·수정·삭제를 처리하는 일반 Java 클래스입니다.
+- 등록·수정·삭제는 성공 시 `true`, 실패 시 `false`를 반환합니다. 없는 ID 조회는 `null`입니다.
+- 등록은 null Post, 제목/내용 null·공백, 제목 100자 초과, 내용 1000자 초과, 중복 ID를 거부합니다.
+- 수정도 같은 문자열 제한을 적용하고, 검증 실패 시 제목과 내용 모두 기존 값을 유지합니다. 길이는 `String.length()` 기준입니다.
+- 등록 및 조회 시 새 Post 객체로 값을 복사합니다. 외부 Setter 호출이 저장된 값을 바꾸지 않으며, 저장 내용 수정은 `updatePost`를 사용합니다.
+- 저장소는 서비스 객체마다 별도이며 재시작하면 사라집니다. HTTP 요청이나 동시 요청을 처리하는 저장소로 연결하지 않았습니다.
+
+```java
+PostService service = new PostService();
+service.addPost(new Post(1, "Java", "List로 게시글 관리")); // true
+Post post = service.findPostById(1);
+service.updatePost(1, "OOP", "수정한 내용"); // true
+service.updatePost(1, " ", "내용"); // false, 기존 값 유지
+service.deletePost(1); // true
+service.findPostById(1); // null
+```
+
+위 예제의 `Post`, `PostService`는 `com.jinhyuk.community.post` 패키지에 있습니다.
+다음 학습 범위는 DB/JPA(메모리 저장과 영속성 차이, Entity, Repository)이며, 학습 후 별도 작업으로 구현합니다.
 
 ## 기획 문서
 

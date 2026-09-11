@@ -1,6 +1,20 @@
 # 진행 기록
 
-## 현재 상태
+## 현재 상태 — 2026-09-12
+
+- 사용자 확인 학습 완료: 메서드 복습, OOP, 캡슐화, static/instance 기본, List/ArrayList, 반복문, 메모리 CRUD, null/isBlank/short-circuit, 기본 Validation, Post/PostService 역할 분리.
+- `feature/in-memory-post-crud`에서 Post/PostService와 CRUD·Validation 테스트 구현. 사용자 지시에 따라 검증·변경 검토 후 commit/push/PR/main merge까지 진행한다.
+- 기준 커밋: `ca2b4a6`. 로컬 main과 저장된 origin/main이 일치한다. 2026-09-12 git fetch origin 성공으로 원격 최신 main과 일치함을 확인했다.
+- 구현: id/title/content만 사용, 제목 100자·내용 1000자 제한, 잘못된 입력 거부, ID 조회·수정·삭제, 중복 ID 거부.
+- 기존 requirements.md의 본문 최대 10,000자와 제목 trim 규칙은 v0.1 초안이다. 이번 학습 구현에는 사용자가 지정한 본문 최대 1000자 및 원문 길이 기준을 적용했으며, 기존 제품 범위 초안은 수정하지 않았다.
+- `/health` 유지. JPA, Entity, Repository, DB 연결, 게시글 Controller/API는 이번 범위에 포함하지 않는다.
+- 테스트: JUnit Platform 직접 실행으로 15개 발견·실행·성공, 실패/건너뜀 0개. PostService 13개, MockMvc GET /health의 HTTP 200 및 ok 1개, 기존 Spring contextLoads 1개.
+- 추가 검증: 일반 Gradle Wrapper test도 BUILD SUCCESSFUL. 15개 테스트, 실패·오류 0개를 XML 보고서로 확인했다. 이전 환경의 접근 오류는 현재 실행에서 재현되지 않았고 빌드 설정은 변경하지 않았다.
+- 다음: ChatGPT 학습 채팅에서 DB/JPA 기초 학습 후 실제 구현 범위를 결정한다.
+- Git 운영: 앞으로는 테스트·변경 검토·병합 가능 여부를 확인한 뒤 별도 검토 대기 없이 커밋·push·PR·merge까지 진행한다. 충돌·테스트 실패·범위 밖 설계가 있으면 해결하거나 필요한 사항을 알린다.
+- 역할: ChatGPT 학습 채팅은 개념 설명·문제·복습·이해도 확인·학습 진도 판단을 담당한다. Codex는 저장소 구현·테스트·Git·검토·Notion 기록 및 Tasks 갱신을 담당한다. 배우지 않은 기술은 선행 구현하지 않는다.
+
+## 개발환경 구성 당시 기록
 
 - 프로젝트 방향: 개발 공부 질문·학습 기록 커뮤니티
 - 운영 방식: 현재 대화에서 기획·학습·구현, 문서로 결정과 진도 기록, GitHub에서 코드와 리뷰 관리
