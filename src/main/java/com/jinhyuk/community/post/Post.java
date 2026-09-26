@@ -1,18 +1,32 @@
 package com.jinhyuk.community.post;
 
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.Id;
+
+@Entity
 public class Post {
 
-    private int id;
+    @Id
+    @GeneratedValue
+    private Long id;
+
+    @Column(nullable = false, length = 100)
     private String title;
+
+    @Column(nullable = false, length = 1000)
     private String content;
 
-    public Post(int id, String title, String content) {
-        this.id = id;
+    protected Post() {
+    }
+
+    public Post(String title, String content) {
         this.title = title;
         this.content = content;
     }
 
-    public int getId() {
+    public Long getId() {
         return id;
     }
 
