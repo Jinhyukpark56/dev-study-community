@@ -1,39 +1,49 @@
 package com.jinhyuk.community.post;
 
-import java.util.ArrayList;
 import java.util.List;
 
-// 학습용 메모리 저장소: 서비스 객체마다 별도 목록을 가지며 재시작하면 사라진다.
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
 public class PostService {
 
-    private List<Post> posts = new ArrayList<>();
+    private final PostRepository postRepository;
 
+    public PostService(PostRepository postRepository) {
+        this.postRepository = postRepository;
+    }
+
+    @Transactional
     public boolean addPost(Post post) {
-        if (!isValidPost(post) || findStoredPostById(post.getId()) != null) {
+        if (!isValidPost(post) || post.getId() != null) {
             return false;
         }
 
-        // 호출자가 원본 객체를 수정해 저장소의 검증을 우회하지 않도록 복사한다.
-        posts.add(new Post(post.getId(), post.getTitle(), post.getContent()));
+        postRepository.save(post);
         return true;
     }
 
-    public Post findPostById(int targetId) {
-        Post post = findStoredPostById(targetId);
-        if (post == null) {
+    public Post findPostById(Long targetId) {
+        if (targetId == null) {
             return null;
         }
 
-        return new Post(post.getId(), post.getTitle(), post.getContent());
+        return postRepository.findById(targetId).orElse(null);
     }
 
-    public boolean updatePost(int targetId, String title, String content) {
+    public List<Post> findAllPosts() {
+        return postRepository.findAll();
+    }
+
+    @Transactional
+    public boolean updatePost(Long targetId, String title, String content) {
         // 두 값을 모두 확인한 뒤 수정하여 실패 시 기존 내용을 유지한다.
-        if (!isValidText(title, content)) {
+        if (targetId == null || !isValidText(title, content)) {
             return false;
         }
 
-        Post post = findStoredPostById(targetId);
+        Post post = postRepository.findById(targetId).orElse(null);
         if (post == null) {
             return false;
         }
@@ -43,23 +53,19 @@ public class PostService {
         return true;
     }
 
-    public boolean deletePost(int targetId) {
-        Post post = findStoredPostById(targetId);
+    @Transactional
+    public boolean deletePost(Long targetId) {
+        if (targetId == null) {
+            return false;
+        }
+
+        Post post = postRepository.findById(targetId).orElse(null);
         if (post == null) {
             return false;
         }
 
-        posts.remove(post);
+        postRepository.delete(post);
         return true;
-    }
-
-    private Post findStoredPostById(int targetId) {
-        for (Post post : posts) {
-            if (post.getId() == targetId) {
-                return post;
-            }
-        }
-        return null;
     }
 
     private boolean isValidPost(Post post) {

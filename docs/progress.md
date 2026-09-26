@@ -1,5 +1,30 @@
 # 진행 기록
 
+## 현재 상태 — 2026-09-27
+
+- Spring Security Session Authentication 실제 코드 리뷰와 사용자 이해 확인을 완료했다.
+- `User` → `UserRepository` → `UserService` → `SecurityConfig` → `AuthController` → `AuthenticationTests` 순서와 `build.gradle` 의존성을 검토했다.
+- `existsByEmail`과 `findByEmail`의 역할, DB unique 제약과 `DataIntegrityViolationException`, email 소문자 정규화 정책, Password hashing과 `matches` 흐름을 확인했다.
+- form login Filter → `UserDetailsService` → Password 검증 → `Authentication` → `SecurityContext` → HTTP Session 흐름을 사용자가 직접 설명했다.
+- logout의 인증 제거·Session 무효화와 CSRF 403의 의미, 같은 Session을 재사용하는 통합 테스트의 목적을 확인했다.
+- 현재 학습 범위에서 즉시 수정해야 할 핵심 Authentication 버그는 확인되지 않았다.
+- 전체 테스트를 다시 실행해 26개 성공, 실패·오류·건너뜀 0을 확인했다.
+- Authentication 완료 뒤 다음 학습·구현 단계는 게시글 작성자 Authorization이다. JUnit 별도 학습은 출시 필수 기능 이후로 계속 보류한다.
+
+## 현재 상태 — 2026-09-25
+
+- 사용자 확인 학습 완료: Authentication/Authorization 차이, 401/403, Password hashing과 matches, Session/Cookie, Spring Security·SecurityFilterChain·Authentication·SecurityContext·PasswordEncoder 기본 역할.
+- JUnit 별도 학습은 출시 필수 기능 이후로 미루고 `feature/session-authentication`에서 인증 구현을 진행했다.
+- `User` Entity는 생성 ID, 정규화한 email, password hash만 저장한다. Role·JWT·Refresh Token·OAuth·작성자 인가는 추가하지 않았다.
+- 회원가입은 email/password 검증 → email 중복 확인 → PasswordEncoder hashing → User 저장 순서다. email은 앞뒤 공백 제거와 소문자 정규화를 적용하고 DB unique 제약도 둔다. password 원문은 변형하거나 저장하지 않는다.
+- Spring Security의 표준 form login을 `/auth/login`에 연결했다. 성공한 Authentication은 HTTP Session에 보관되며, `/auth/me`를 다음 요청에서 호출해 로그인 상태 유지를 확인했다.
+- `/auth/logout`은 Session과 인증 상태를 제거한다. 이후 보호된 `/auth/me` 요청이 401이 되는 것을 확인했다.
+- CSRF 보호는 유지한다. `/auth/csrf`에서 token을 얻고 회원가입·로그인·로그아웃 POST에 포함한다.
+- 접근 정책: `/health`, 인증 진입점, 게시글·댓글 GET은 공개. 게시글·댓글 쓰기는 Authentication 필요. 작성자 본인 여부를 판단하는 Authorization은 다음 단계다.
+- 테스트: 전체 26개 성공, 실패·오류·건너뜀 0. 기존 Post/JPA 15개, context 1개, health 1개가 계속 통과했고 인증 통합 테스트 9개를 추가했다.
+- Git: 인증 구현은 commit·push·PR·merge 전이다. 실제 코드 리뷰와 사용자 인증 흐름 설명·이해 확인을 기다린다.
+- 다음: ChatGPT 실제 코드 리뷰 → 필요한 수정 → 전체 재테스트 → 사용자 승인 후 Git 작업 마무리. 작성자 인가는 이번 범위에 포함하지 않는다.
+
 ## 현재 상태 — 2026-09-12
 
 - 사용자 확인 학습 완료: 메서드 복습, OOP, 캡슐화, static/instance 기본, List/ArrayList, 반복문, 메모리 CRUD, null/isBlank/short-circuit, 기본 Validation, Post/PostService 역할 분리.

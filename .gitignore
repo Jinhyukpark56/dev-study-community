@@ -15,6 +15,7 @@ out/
 application-local.properties
 application-local.yml
 application-local.yaml
+data/
 
 # Logs and OS files
 *.log
