@@ -1,5 +1,25 @@
 # 게시글 API 초안
 
+## Session 인증 API — 2026-09-25 구현
+
+인증 요청은 Spring Security의 표준 form login과 HTTP Session을 사용합니다. 로그인 body는 JSON이 아니라 `application/x-www-form-urlencoded`입니다. unsafe HTTP 요청에는 `/auth/csrf`에서 받은 CSRF token과 같은 Session cookie를 함께 전달합니다.
+로그인과 로그아웃 성공 시 Spring Security가 기존 CSRF token을 제거하므로, 클라이언트는 각 성공 뒤 `/auth/csrf`를 다시 호출해 다음 POST에 사용할 token을 받아야 합니다.
+
+| 행동 | 요청 | 입력 | 성공 | 실패 |
+| --- | --- | --- | --- | --- |
+| CSRF token | GET /auth/csrf | 없음 | 200, token 정보 | - |
+| 회원가입 | POST /auth/register | email, password | 201 | 잘못된 입력·중복 email 400 |
+| 로그인 | POST /auth/login | email, password | 200, Session 생성 | 자격정보 오류 401 |
+| 현재 사용자 | GET /auth/me | Session cookie | 200, email | 비로그인 401 |
+| 로그아웃 | POST /auth/logout | Session cookie | 204, Session 무효화 | - |
+
+- email은 앞뒤 공백을 제거하고 소문자로 저장하며 최대 254자, `@` 한 개, 공백 없음 규칙을 적용합니다.
+- password는 최소 15자, BCrypt가 처리할 수 있는 최대 72 UTF-8 byte이며 앞뒤 공백을 임의로 제거하지 않습니다.
+- password 원문은 저장하지 않고 BCrypt 기반 PasswordEncoder 결과만 저장합니다.
+- 존재하지 않는 email과 잘못된 password는 모두 같은 401로 응답합니다.
+- 게시글·댓글 GET은 비로그인 사용자에게 허용하고, 쓰기 요청에는 Authentication을 요구합니다.
+- 작성자 본인 여부를 확인하는 Authorization과 403 처리는 후속 단계입니다.
+
 사용자와 논의한 요청 경로입니다. 구현 전 단계이며 JSON 필드와 인증 방식의 세부 계약은 아직 미확정입니다.
 
 | 행동 | 요청 | 성공 응답 초안 | 권한 |

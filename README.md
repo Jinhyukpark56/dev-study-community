@@ -5,31 +5,50 @@ Java와 백엔드 개발을 기능 구현에 연결해 학습하고, 코드 리�
 
 ## 현재 상태
 
-Java 21 / Spring Boot 최소 서버에 학습용 메모리 게시글 CRUD와 입력 검증을 구현했습니다. 게시글 API·DB 연결·회원 기능은 아직 구현하지 않았습니다.
+Java 21 / Spring Boot 프로젝트에 Spring Data JPA 기반 게시글 CRUD와 Spring Security 기반 Session 인증을 구현했습니다. 개발 실행은 파일형 H2 DB를 사용하며, 게시글 HTTP API와 작성자 인가는 아직 구현하지 않았습니다.
 저장소: https://github.com/Jinhyukpark56/dev-study-community
 
-### 메모리 게시글 구현 (2026-09-12)
+### JPA 게시글 구현 (2026-09-19)
 
-- `Post`: private id/title/content, 생성자, Getter, title/content Setter. ID는 생성 시 지정하며 변경할 수 없습니다.
-- `PostService`: 내부 `List<Post>`로 등록·ID 조회·수정·삭제를 처리하는 일반 Java 클래스입니다.
+- `Post`: `id/title/content`를 가진 JPA Entity입니다. ID는 `Long`이며 DB 저장 시 생성되고 외부에서 변경할 수 없습니다.
+- `PostRepository`: `JpaRepository<Post, Long>`를 상속해 저장·ID 조회·목록·삭제를 담당합니다.
+- `PostService`: Repository를 사용해 등록·ID 조회·목록·수정·삭제와 입력 검증을 처리합니다.
 - 등록·수정·삭제는 성공 시 `true`, 실패 시 `false`를 반환합니다. 없는 ID 조회는 `null`입니다.
-- 등록은 null Post, 제목/내용 null·공백, 제목 100자 초과, 내용 1000자 초과, 중복 ID를 거부합니다.
+- 등록은 null Post, 이미 저장된 Post, 제목/내용 null·공백, 제목 100자 초과, 내용 1000자 초과를 거부합니다.
 - 수정도 같은 문자열 제한을 적용하고, 검증 실패 시 제목과 내용 모두 기존 값을 유지합니다. 길이는 `String.length()` 기준입니다.
-- 등록 및 조회 시 새 Post 객체로 값을 복사합니다. 외부 Setter 호출이 저장된 값을 바꾸지 않으며, 저장 내용 수정은 `updatePost`를 사용합니다.
-- 저장소는 서비스 객체마다 별도이며 재시작하면 사라집니다. HTTP 요청이나 동시 요청을 처리하는 저장소로 연결하지 않았습니다.
+- 수정은 Service의 `@Transactional` 범위에서 Entity 값을 바꾸며, 별도 `save` 호출 없이 Dirty Checking으로 반영됩니다.
+- 개발 실행은 `data/` 아래 파일형 H2 DB를 사용합니다. 테스트는 별도 메모리 H2 DB를 사용해 개발 데이터를 건드리지 않습니다.
+- 전체 17개 테스트가 통과했습니다. 이 중 PostService의 DB 통합 테스트는 15개입니다.
+
+현재 `findAllPosts()`는 정렬을 지정하지 않으므로 제품 요구사항의 최신순 목록은 아직 구현되지 않았습니다. 조회 결과로 `Post` Entity를 직접 반환하는 현재 구조에서는 저장값 변경을 `PostService`를 통해 수행해야 하며, Controller/API 단계에서 외부 변경 경계를 다시 검토합니다. 파일형 H2의 `ddl-auto=update`는 학습·개발용 설정으로 스키마 변경 이력을 관리하지 않습니다.
 
 ```java
-PostService service = new PostService();
-service.addPost(new Post(1, "Java", "List로 게시글 관리")); // true
-Post post = service.findPostById(1);
-service.updatePost(1, "OOP", "수정한 내용"); // true
-service.updatePost(1, " ", "내용"); // false, 기존 값 유지
-service.deletePost(1); // true
-service.findPostById(1); // null
+Post post = new Post("Java", "JPA로 게시글 관리");
+postService.addPost(post);                  // true, ID 생성
+Post found = postService.findPostById(post.getId());
+postService.updatePost(post.getId(), "JPA", "수정한 내용"); // true
+postService.updatePost(post.getId(), " ", "내용");         // false, 기존 값 유지
+postService.deletePost(post.getId());       // true
 ```
 
 위 예제의 `Post`, `PostService`는 `com.jinhyuk.community.post` 패키지에 있습니다.
-다음 학습 범위는 DB/JPA(메모리 저장과 영속성 차이, Entity, Repository)이며, 학습 후 별도 작업으로 구현합니다.
+
+### Session 인증 구현 (2026-09-25)
+
+- `User`: 생성 ID, 정규화한 email, PasswordEncoder로 만든 password hash만 저장합니다.
+- `UserRepository`: email 조회와 중복 확인을 담당합니다. DB에도 email unique 제약을 둡니다.
+- `UserService`: email/password 검증, 중복 확인, password hashing, 회원 저장을 담당합니다.
+- `SecurityConfig`: Spring Security form login과 logout을 사용해 인증 정보를 HTTP Session에 저장하고 제거합니다.
+- `POST /auth/register`: `application/x-www-form-urlencoded`의 `email`, `password`로 회원가입합니다.
+- `POST /auth/login`: 같은 형식으로 로그인합니다. 성공은 200, 잘못된 email/password는 모두 401입니다.
+- `POST /auth/logout`: Session과 인증 상태를 제거하고 204를 반환합니다.
+- `GET /auth/me`: 로그인 상태이면 현재 email을 반환하고, 비로그인이면 401을 반환합니다.
+- `GET /auth/csrf`: 회원가입·로그인·로그아웃 같은 POST 요청에 필요한 CSRF token을 제공합니다.
+- 로그인과 로그아웃 성공 시 이전 CSRF token이 제거되므로, 브라우저는 각 성공 뒤 `/auth/csrf`를 다시 호출해야 합니다.
+- 게시글·댓글 조회는 공개하고 쓰기 요청은 로그인 사용자에게만 허용하도록 Security 정책을 준비했습니다. 작성자 본인 확인은 다음 인가 단계에서 구현합니다.
+- 전체 테스트 26개가 통과했습니다. 기존 Post/JPA 테스트 17개와 인증 테스트 9개이며 실패·오류·건너뜀은 없습니다.
+
+2026-09-27 ChatGPT 실제 코드 리뷰와 사용자 이해 확인을 완료했습니다. 현재 학습 범위에서 즉시 수정해야 할 핵심 Authentication 버그는 확인되지 않았으며, 다음 구현 단계는 게시글 작성자 Authorization입니다.
 
 ## 기획 문서
 
@@ -113,7 +132,7 @@ Java/Spring Boot 버전, 빌드 도구, 데이터베이스, 로그인 방식은 
 ```
 
 브라우저에서 http://localhost:8080/health 를 열면 `ok`가 표시됩니다. 종료는 실행한 터미널에서 Ctrl+C입니다.
-현재 `/health`는 서버 실행 확인용이며 게시글 API는 아직 없습니다. 루트 `/`의 404는 현재 정상입니다.
+현재 `/health`는 비로그인 상태에서도 사용할 수 있는 서버 실행 확인용입니다. 게시글 API는 아직 없으므로 해당 조회 경로의 404는 현재 정상입니다.
 
 ```powershell
 .\gradlew.bat test
@@ -121,4 +140,4 @@ Java/Spring Boot 버전, 빌드 도구, 데이터베이스, 로그인 방식은 
 ```
 
 처음 실행할 때 Gradle과 의존성을 다운로드하므로 인터넷 연결이 필요합니다.
-데이터베이스 설정은 아직 필요하지 않습니다.
+별도 DB 설치는 필요하지 않습니다. 개발 실행 시 파일형 H2 DB가 `data/` 아래에 생성되고, 테스트는 메모리 H2 DB를 사용합니다.
