@@ -1,5 +1,28 @@
 # 진행 기록
 
+## 현재 상태 — 2026-09-30
+
+- Post 작성자 Authorization의 ChatGPT 실제 코드 리뷰와 사용자 이해 확인을 완료했다. `Post → User` 관계와 FK, Authentication 기반 작성자 지정, 작성자 PK 비교, Authorization 선확인, PostResponse, 401·403·404 및 CSRF 403 구분을 실제 코드로 검토했다.
+- 사용자는 Authentication email → User Entity 조회 → `Post.author` 연결 → JPA FK 저장 흐름과, 조회 → Authorization → Validation → 변경 → Dirty Checking 순서를 설명했다.
+- 최종 `clean test bootJar`에서 전체 40개 성공, 실패·오류·건너뜀 0을 다시 확인했다. 파일형 H2 실제 기동에서 `/health` 200 `ok`, `/posts` 200 `[]`, `POST.AUTHOR_ID NOT NULL → USERS.ID` FK도 재확인했다.
+- 다음 기능은 시작하지 않았다. JUnit 별도 학습은 출시 필수 기능 이후로 계속 보류한다.
+- 최종 commit·PR·merge 식별자와 Tasks 상태는 Git history와 Notion 학습 기록에서 관리한다.
+
+## 현재 상태 — 2026-09-29
+
+- `feature/post-author-authorization`에서 게시글 작성자 Authorization 구현과 전체 테스트를 완료했고, ChatGPT 실제 코드 리뷰를 기다린다.
+- `Post`에서 `User`로 향하는 필수 단방향 `ManyToOne` 관계를 추가했다. DB에는 null을 허용하지 않는 `post.author_id` 외래 키를 저장하며 author 변경 setter와 cascade는 두지 않았다.
+- `POST /posts`는 클라이언트의 작성자 입력을 사용하지 않고, 현재 `Authentication`의 email로 조회한 `User`를 작성자로 지정한다.
+- `GET /posts`, `GET /posts/{id}`는 비로그인 사용자에게 공개한다. 응답은 `id/title/content/authorId`만 포함해 User Entity의 password hash를 노출하지 않는다.
+- `PATCH /posts/{id}`, `DELETE /posts/{id}`는 로그인한 게시글 작성자 본인에게만 허용한다. 비로그인 요청은 401, 다른 로그인 사용자는 403, 없는 게시글은 404로 구분한다. 입력 검증 실패는 400이며 CSRF token 누락·오류는 Security Filter에서 403으로 차단한다.
+- 게시글 요청의 현재 입력 형식은 `application/x-www-form-urlencoded`이다. 작성·수정은 `title/content`를 사용하며, 수정은 두 값을 모두 받는다.
+- 기존 제목·본문 Validation은 유지했다: null·공백 거부, 제목 최대 100자, 본문 최대 1000자. 저장되지 않은 author가 있는 게시글 등록도 거부한다.
+- 수정 트랜잭션은 대상 조회 → 작성자 ID 비교 → 전체 입력 검증 → 값 변경 순서다. 성공 시 Dirty Checking으로 반영하고, 권한·입력 실패 시 Entity를 변경하기 전에 종료한다. 삭제는 대상 조회 → 작성자 ID 비교 → 삭제 순서다.
+- 전체 테스트 40개 성공, 실패·오류·건너뜀 0. `PostServiceTests` 16개, `PostAuthorizationTests` 13개, `AuthenticationTests` 9개, context와 health 각 1개가 통과했다.
+- 파일형 개발 H2로 실제 서버를 기동해 `/health` 200 `ok`, 공개 `/posts` 200 `[]`를 확인했다. DB metadata에서 `POST.AUTHOR_ID`가 NOT NULL이며 `USERS.ID`를 참조하는 Foreign Key도 확인했고, `bootJar` 생성에 성공했다.
+- 당시 Git 상태: 구현과 검증은 완료했지만 코드 리뷰 전이어서 commit·push·PR·merge는 진행하지 않았다.
+- 당시 다음 단계: ChatGPT와 `Post` 관계, 현재 사용자 작성자 지정, 401/403/404 분리, 트랜잭션 검증 순서, 통합 테스트를 리뷰한다. 이 리뷰와 이해 확인은 2026-09-30 완료했다.
+
 ## 현재 상태 — 2026-09-27
 
 - Spring Security Session Authentication 실제 코드 리뷰와 사용자 이해 확인을 완료했다.
@@ -9,21 +32,21 @@
 - logout의 인증 제거·Session 무효화와 CSRF 403의 의미, 같은 Session을 재사용하는 통합 테스트의 목적을 확인했다.
 - 현재 학습 범위에서 즉시 수정해야 할 핵심 Authentication 버그는 확인되지 않았다.
 - 전체 테스트를 다시 실행해 26개 성공, 실패·오류·건너뜀 0을 확인했다.
-- Authentication 완료 뒤 다음 학습·구현 단계는 게시글 작성자 Authorization이다. JUnit 별도 학습은 출시 필수 기능 이후로 계속 보류한다.
+- 당시 다음 학습·구현 단계는 게시글 작성자 Authorization이었다. 2026-09-29 구현·테스트, 2026-09-30 실제 코드 리뷰·이해 확인을 완료했다. JUnit 별도 학습은 출시 필수 기능 이후로 계속 보류한다.
 
 ## 현재 상태 — 2026-09-25
 
 - 사용자 확인 학습 완료: Authentication/Authorization 차이, 401/403, Password hashing과 matches, Session/Cookie, Spring Security·SecurityFilterChain·Authentication·SecurityContext·PasswordEncoder 기본 역할.
 - JUnit 별도 학습은 출시 필수 기능 이후로 미루고 `feature/session-authentication`에서 인증 구현을 진행했다.
-- `User` Entity는 생성 ID, 정규화한 email, password hash만 저장한다. Role·JWT·Refresh Token·OAuth·작성자 인가는 추가하지 않았다.
+- 인증 구현 당시 `User` Entity에는 생성 ID, 정규화한 email, password hash만 저장하고 Role·JWT·Refresh Token·OAuth·작성자 인가는 추가하지 않았다. 작성자 인가는 이후 2026-09-29 별도 단계에서 구현했다.
 - 회원가입은 email/password 검증 → email 중복 확인 → PasswordEncoder hashing → User 저장 순서다. email은 앞뒤 공백 제거와 소문자 정규화를 적용하고 DB unique 제약도 둔다. password 원문은 변형하거나 저장하지 않는다.
 - Spring Security의 표준 form login을 `/auth/login`에 연결했다. 성공한 Authentication은 HTTP Session에 보관되며, `/auth/me`를 다음 요청에서 호출해 로그인 상태 유지를 확인했다.
 - `/auth/logout`은 Session과 인증 상태를 제거한다. 이후 보호된 `/auth/me` 요청이 401이 되는 것을 확인했다.
 - CSRF 보호는 유지한다. `/auth/csrf`에서 token을 얻고 회원가입·로그인·로그아웃 POST에 포함한다.
-- 접근 정책: `/health`, 인증 진입점, 게시글·댓글 GET은 공개. 게시글·댓글 쓰기는 Authentication 필요. 작성자 본인 여부를 판단하는 Authorization은 다음 단계다.
+- 당시 접근 정책: `/health`, 인증 진입점, 게시글·댓글 GET은 공개하고 쓰기 요청에는 Authentication을 요구했다. 작성자 본인 여부 판단은 다음 단계로 남겼고 2026-09-29 게시글에 구현했다.
 - 테스트: 전체 26개 성공, 실패·오류·건너뜀 0. 기존 Post/JPA 15개, context 1개, health 1개가 계속 통과했고 인증 통합 테스트 9개를 추가했다.
 - Git: 인증 구현은 commit·push·PR·merge 전이다. 실제 코드 리뷰와 사용자 인증 흐름 설명·이해 확인을 기다린다.
-- 다음: ChatGPT 실제 코드 리뷰 → 필요한 수정 → 전체 재테스트 → 사용자 승인 후 Git 작업 마무리. 작성자 인가는 이번 범위에 포함하지 않는다.
+- 인증 구현 당시 다음 순서: ChatGPT 실제 코드 리뷰 → 필요한 수정 → 전체 재테스트 → 사용자 승인 후 Git 작업 마무리. 작성자 인가는 이 인증 작업과 분리해 이후 별도 단계에서 구현했다.
 
 ## 현재 상태 — 2026-09-12
 
@@ -52,7 +75,7 @@
 - 문서의 세부 입력 제한·기술 후보는 제안이며 사용자가 확정한 결정이 아님
 - 현재 진행: 로컬 저장소 연결 및 개발환경 준비 완료. 설정 파일과 최소 서버의 역할을 학습자에게 설명할 차례
 
-## 다음 시작점
+## 초기 기획·학습 기록
 
 사용자가 본인이 작성한 글·댓글만 수정·삭제할 수 있다는 원칙을 자신의 말로 설명했습니다. 비로그인 조회 허용도 확인했습니다. 댓글 수정 기능을 첫 버전에 반영했습니다.
 사용자가 게시글 삭제 시 본문과 댓글을 모두 삭제하는 정책을 선택했습니다. 삭제된 글의 자리는 남기지 않고 글-태그 연결도 제거합니다. 공유 태그 자체는 유지합니다.

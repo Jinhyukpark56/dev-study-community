@@ -5,30 +5,32 @@ Java와 백엔드 개발을 기능 구현에 연결해 학습하고, 코드 리�
 
 ## 현재 상태
 
-Java 21 / Spring Boot 프로젝트에 Spring Data JPA 기반 게시글 CRUD와 Spring Security 기반 Session 인증을 구현했습니다. 개발 실행은 파일형 H2 DB를 사용하며, 게시글 HTTP API와 작성자 인가는 아직 구현하지 않았습니다.
+Java 21 / Spring Boot 프로젝트에 Spring Data JPA 기반 게시글 CRUD, Spring Security 기반 Session 인증, 게시글 작성자 Authorization을 구현했습니다. 개발 실행은 파일형 H2 DB를 사용합니다. Authorization 구현과 40개 전체 테스트, ChatGPT 실제 코드 리뷰, 사용자 이해 확인을 2026-09-30에 완료했습니다.
 저장소: https://github.com/Jinhyukpark56/dev-study-community
 
 ### JPA 게시글 구현 (2026-09-19)
 
-- `Post`: `id/title/content`를 가진 JPA Entity입니다. ID는 `Long`이며 DB 저장 시 생성되고 외부에서 변경할 수 없습니다.
+- `Post`: `id/title/content/author`를 가진 JPA Entity입니다. ID는 `Long`이며 DB 저장 시 생성되고 외부에서 변경할 수 없습니다.
+- `author`는 필수 `@ManyToOne` 관계이며 `post.author_id` 외래 키로 `User`와 연결합니다. `Post`에서 `User`로만 탐색하는 단방향 관계이고, author 변경 메서드와 cascade는 두지 않았습니다.
 - `PostRepository`: `JpaRepository<Post, Long>`를 상속해 저장·ID 조회·목록·삭제를 담당합니다.
-- `PostService`: Repository를 사용해 등록·ID 조회·목록·수정·삭제와 입력 검증을 처리합니다.
-- 등록·수정·삭제는 성공 시 `true`, 실패 시 `false`를 반환합니다. 없는 ID 조회는 `null`입니다.
+- `PostService`: Repository를 사용해 등록·ID 조회·목록·수정·삭제, 입력 검증, 작성자 확인을 처리합니다.
+- 등록은 성공 여부를 `boolean`으로 반환합니다. 수정·삭제는 `SUCCESS`, `INVALID_INPUT`, `NOT_FOUND`, `FORBIDDEN`으로 결과를 구분하며, 없는 ID 조회는 `null`입니다.
 - 등록은 null Post, 이미 저장된 Post, 제목/내용 null·공백, 제목 100자 초과, 내용 1000자 초과를 거부합니다.
 - 수정도 같은 문자열 제한을 적용하고, 검증 실패 시 제목과 내용 모두 기존 값을 유지합니다. 길이는 `String.length()` 기준입니다.
-- 수정은 Service의 `@Transactional` 범위에서 Entity 값을 바꾸며, 별도 `save` 호출 없이 Dirty Checking으로 반영됩니다.
+- 수정은 대상 조회 → 작성자 확인 → 입력 검증 → 값 변경 순서로 처리합니다. Service의 `@Transactional` 범위에서 Entity 값을 바꾸며, 별도 `save` 호출 없이 Dirty Checking으로 반영됩니다.
 - 개발 실행은 `data/` 아래 파일형 H2 DB를 사용합니다. 테스트는 별도 메모리 H2 DB를 사용해 개발 데이터를 건드리지 않습니다.
-- 전체 17개 테스트가 통과했습니다. 이 중 PostService의 DB 통합 테스트는 15개입니다.
+- 현재 전체 40개 테스트가 통과했습니다. 게시글 서비스, Session 인증, 게시글 HTTP API와 작성자 인가의 성공·실패 경로를 포함합니다.
 
-현재 `findAllPosts()`는 정렬을 지정하지 않으므로 제품 요구사항의 최신순 목록은 아직 구현되지 않았습니다. 조회 결과로 `Post` Entity를 직접 반환하는 현재 구조에서는 저장값 변경을 `PostService`를 통해 수행해야 하며, Controller/API 단계에서 외부 변경 경계를 다시 검토합니다. 파일형 H2의 `ddl-auto=update`는 학습·개발용 설정으로 스키마 변경 이력을 관리하지 않습니다.
+현재 `findAllPosts()`는 정렬을 지정하지 않으므로 제품 요구사항의 최신순 목록은 아직 구현되지 않았습니다. Service는 내부에서 `Post` Entity를 사용하지만 HTTP 조회 응답은 `PostResponse`로 변환해 허용한 필드만 노출합니다. 파일형 H2의 `ddl-auto=update`는 학습·개발용 설정으로 스키마 변경 이력을 관리하지 않습니다.
 
 ```java
-Post post = new Post("Java", "JPA로 게시글 관리");
-postService.addPost(post);                  // true, ID 생성
+User currentUser = userService.findByEmail(authentication.getName()).orElseThrow();
+Post post = new Post("Java", "JPA로 게시글 관리", currentUser);
+postService.addPost(post);                  // true, ID와 작성자 연결 저장
 Post found = postService.findPostById(post.getId());
-postService.updatePost(post.getId(), "JPA", "수정한 내용"); // true
-postService.updatePost(post.getId(), " ", "내용");         // false, 기존 값 유지
-postService.deletePost(post.getId());       // true
+postService.updatePost(post.getId(), currentUser, "JPA", "수정한 내용"); // SUCCESS
+postService.updatePost(post.getId(), currentUser, " ", "내용");         // INVALID_INPUT
+postService.deletePost(post.getId(), currentUser);                       // SUCCESS
 ```
 
 위 예제의 `Post`, `PostService`는 `com.jinhyuk.community.post` 패키지에 있습니다.
@@ -45,10 +47,20 @@ postService.deletePost(post.getId());       // true
 - `GET /auth/me`: 로그인 상태이면 현재 email을 반환하고, 비로그인이면 401을 반환합니다.
 - `GET /auth/csrf`: 회원가입·로그인·로그아웃 같은 POST 요청에 필요한 CSRF token을 제공합니다.
 - 로그인과 로그아웃 성공 시 이전 CSRF token이 제거되므로, 브라우저는 각 성공 뒤 `/auth/csrf`를 다시 호출해야 합니다.
-- 게시글·댓글 조회는 공개하고 쓰기 요청은 로그인 사용자에게만 허용하도록 Security 정책을 준비했습니다. 작성자 본인 확인은 다음 인가 단계에서 구현합니다.
+- 게시글·댓글 조회는 공개하고 쓰기 요청은 로그인 사용자에게만 허용합니다. 게시글 수정·삭제의 작성자 본인 확인은 `PostService`에서 처리합니다.
 - 전체 테스트 26개가 통과했습니다. 기존 Post/JPA 테스트 17개와 인증 테스트 9개이며 실패·오류·건너뜀은 없습니다.
 
-2026-09-27 ChatGPT 실제 코드 리뷰와 사용자 이해 확인을 완료했습니다. 현재 학습 범위에서 즉시 수정해야 할 핵심 Authentication 버그는 확인되지 않았으며, 다음 구현 단계는 게시글 작성자 Authorization입니다.
+2026-09-27 ChatGPT 실제 코드 리뷰와 사용자 이해 확인을 완료했습니다. 현재 학습 범위에서 즉시 수정해야 할 핵심 Authentication 버그는 확인되지 않았습니다.
+
+### 게시글 작성자 Authorization 구현·리뷰 완료 (2026-09-30)
+
+- `GET /posts`, `GET /posts/{id}`는 로그인 없이 조회할 수 있습니다. 응답은 `id/title/content/authorId`만 포함해 User의 password hash를 노출하지 않습니다.
+- `POST /posts`는 로그인 사용자가 보낸 `title/content`를 검증하고, 서버가 현재 `Authentication`의 email로 찾은 `User`를 작성자로 지정합니다. 클라이언트가 작성자 ID를 선택할 수 없습니다.
+- `PATCH /posts/{id}`와 `DELETE /posts/{id}`는 로그인한 작성자 본인에게만 허용합니다. 다른 로그인 사용자는 403, 존재하지 않는 게시글은 404입니다.
+- 입력 오류는 400, 유효한 CSRF token은 있지만 로그인하지 않은 쓰기 요청은 401입니다. CSRF token이 없거나 잘못된 unsafe 요청은 Spring Security가 403으로 차단합니다.
+- 게시글 요청의 현재 입력 형식은 `application/x-www-form-urlencoded`이며, 수정 요청은 `title`과 `content`를 모두 전달합니다.
+- 작성자 확인은 Java 객체 동일성이 아니라 저장된 `User` ID를 비교합니다. 권한이 없거나 입력이 잘못되면 Entity를 바꾸기 전에 종료해 기존 데이터가 유지됩니다.
+- 전체 40개 테스트가 성공했고 실패·오류·건너뜀은 없습니다. ChatGPT 실제 코드 리뷰와 사용자 Authorization 흐름 이해 확인도 완료했습니다.
 
 ## 기획 문서
 
@@ -132,7 +144,7 @@ Java/Spring Boot 버전, 빌드 도구, 데이터베이스, 로그인 방식은 
 ```
 
 브라우저에서 http://localhost:8080/health 를 열면 `ok`가 표시됩니다. 종료는 실행한 터미널에서 Ctrl+C입니다.
-현재 `/health`는 비로그인 상태에서도 사용할 수 있는 서버 실행 확인용입니다. 게시글 API는 아직 없으므로 해당 조회 경로의 404는 현재 정상입니다.
+현재 `/health`는 비로그인 상태에서도 사용할 수 있는 서버 실행 확인용입니다. 게시글 조회 API도 비로그인 상태에서 사용할 수 있으며, 없는 게시글 상세 조회는 404를 반환합니다.
 
 ```powershell
 .\gradlew.bat test

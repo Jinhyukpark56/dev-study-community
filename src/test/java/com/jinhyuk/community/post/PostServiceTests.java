@@ -1,5 +1,8 @@
 package com.jinhyuk.community.post;
 
+import com.jinhyuk.community.user.User;
+import com.jinhyuk.community.user.UserRepository;
+import com.jinhyuk.community.user.UserService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,14 +19,25 @@ class PostServiceTests {
     @Autowired
     private PostRepository repository;
 
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private UserService userService;
+
+    private User author;
+
     @BeforeEach
     void clearPosts() {
         repository.deleteAll();
+        userRepository.deleteAll();
+        assertTrue(userService.register("post-author@example.com", "author-password"));
+        author = userRepository.findByEmail("post-author@example.com").orElseThrow();
     }
 
     @Test
     void registersPostAndGeneratesId() {
-        Post post = new Post("Java", "JPA 공부");
+        Post post = new Post("Java", "JPA 공부", author);
 
         assertTrue(service.addPost(post));
         assertNotNull(post.getId());
@@ -60,7 +74,9 @@ class PostServiceTests {
     void updatesTitleAndContentWithoutChangingId() {
         Post saved = register("이전 제목", "이전 내용");
 
-        assertTrue(service.updatePost(saved.getId(), "새 제목", "새 내용"));
+        assertEquals(
+                PostOperationResult.SUCCESS,
+                service.updatePost(saved.getId(), author, "새 제목", "새 내용"));
 
         Post found = service.findPostById(saved.getId());
         assertNotNull(found);
@@ -74,18 +90,22 @@ class PostServiceTests {
         Post first = register("같은 제목", "첫 글");
         Post second = register("같은 제목", "둘째 글");
 
-        assertTrue(service.deletePost(first.getId()));
+        assertEquals(PostOperationResult.SUCCESS, service.deletePost(first.getId(), author));
         assertNull(service.findPostById(first.getId()));
         assertEquals("둘째 글", service.findPostById(second.getId()).getContent());
-        assertFalse(service.deletePost(first.getId()));
+        assertEquals(PostOperationResult.NOT_FOUND, service.deletePost(first.getId(), author));
     }
 
     @Test
     void rejectsUpdateAndDeleteForMissingId() {
-        assertFalse(service.updatePost(999L, "제목", "내용"));
-        assertFalse(service.deletePost(999L));
-        assertFalse(service.updatePost(null, "제목", "내용"));
-        assertFalse(service.deletePost(null));
+        assertEquals(
+                PostOperationResult.NOT_FOUND,
+                service.updatePost(999L, author, "제목", "내용"));
+        assertEquals(PostOperationResult.NOT_FOUND, service.deletePost(999L, author));
+        assertEquals(
+                PostOperationResult.NOT_FOUND,
+                service.updatePost(null, author, "제목", "내용"));
+        assertEquals(PostOperationResult.NOT_FOUND, service.deletePost(null, author));
     }
 
     @Test
@@ -95,11 +115,17 @@ class PostServiceTests {
     }
 
     @Test
+    void rejectsPostWithoutAuthor() {
+        assertFalse(service.addPost(new Post("제목", "내용", null)));
+        assertEquals(0, repository.count());
+    }
+
+    @Test
     void rejectsInvalidTitlesOnRegistration() {
         String[] invalidTitles = {null, "", " \t\n", "가".repeat(101)};
 
         for (String title : invalidTitles) {
-            assertFalse(service.addPost(new Post(title, "내용")));
+            assertFalse(service.addPost(new Post(title, "내용", author)));
         }
 
         assertEquals(0, repository.count());
@@ -110,7 +136,7 @@ class PostServiceTests {
         String[] invalidContents = {null, "", " \t\n", "나".repeat(1001)};
 
         for (String content : invalidContents) {
-            assertFalse(service.addPost(new Post("제목", content)));
+            assertFalse(service.addPost(new Post("제목", content, author)));
         }
 
         assertEquals(0, repository.count());
@@ -118,10 +144,16 @@ class PostServiceTests {
 
     @Test
     void acceptsExactLengthLimitsOnRegistrationAndUpdate() {
-        Post post = new Post("가".repeat(100), "나".repeat(1000));
+        Post post = new Post("가".repeat(100), "나".repeat(1000), author);
 
         assertTrue(service.addPost(post));
-        assertTrue(service.updatePost(post.getId(), "다".repeat(100), "라".repeat(1000)));
+        assertEquals(
+                PostOperationResult.SUCCESS,
+                service.updatePost(
+                        post.getId(),
+                        author,
+                        "다".repeat(100),
+                        "라".repeat(1000)));
         assertEquals("다".repeat(100), service.findPostById(post.getId()).getTitle());
         assertEquals("라".repeat(1000), service.findPostById(post.getId()).getContent());
     }
@@ -133,11 +165,15 @@ class PostServiceTests {
         String[] invalidContents = {null, "", " \t\n", "나".repeat(1001)};
 
         for (String title : invalidTitles) {
-            assertFalse(service.updatePost(saved.getId(), title, "바뀌면 안 되는 내용"));
+            assertEquals(
+                    PostOperationResult.INVALID_INPUT,
+                    service.updatePost(saved.getId(), author, title, "바뀌면 안 되는 내용"));
             assertOriginalValuesRemain(saved.getId());
         }
         for (String content : invalidContents) {
-            assertFalse(service.updatePost(saved.getId(), "바뀌면 안 되는 제목", content));
+            assertEquals(
+                    PostOperationResult.INVALID_INPUT,
+                    service.updatePost(saved.getId(), author, "바뀌면 안 되는 제목", content));
             assertOriginalValuesRemain(saved.getId());
         }
     }
@@ -160,13 +196,13 @@ class PostServiceTests {
 
     @Test
     void serviceReadsPostStoredThroughRepository() {
-        Post saved = repository.save(new Post("제목", "내용"));
+        Post saved = repository.save(new Post("제목", "내용", author));
 
         assertNotNull(service.findPostById(saved.getId()));
     }
 
     private Post register(String title, String content) {
-        Post post = new Post(title, content);
+        Post post = new Post(title, content, author);
         assertTrue(service.addPost(post));
         return post;
     }
