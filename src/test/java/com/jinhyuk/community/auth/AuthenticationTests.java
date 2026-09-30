@@ -2,6 +2,7 @@ package com.jinhyuk.community.auth;
 
 import com.jinhyuk.community.user.User;
 import com.jinhyuk.community.user.UserRepository;
+import com.jinhyuk.community.post.PostRepository;
 import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -41,10 +42,14 @@ class AuthenticationTests {
     private UserRepository userRepository;
 
     @Autowired
+    private PostRepository postRepository;
+
+    @Autowired
     private PasswordEncoder passwordEncoder;
 
     @BeforeEach
     void clearUsers() {
+        postRepository.deleteAll();
         userRepository.deleteAll();
     }
 

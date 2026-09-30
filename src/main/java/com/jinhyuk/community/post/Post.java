@@ -1,9 +1,12 @@
 package com.jinhyuk.community.post;
 
+import com.jinhyuk.community.user.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 
 @Entity
 public class Post {
@@ -18,12 +21,17 @@ public class Post {
     @Column(nullable = false, length = 1000)
     private String content;
 
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "author_id", nullable = false)
+    private User author;
+
     protected Post() {
     }
 
-    public Post(String title, String content) {
+    public Post(String title, String content, User author) {
         this.title = title;
         this.content = content;
+        this.author = author;
     }
 
     public Long getId() {
@@ -36,6 +44,10 @@ public class Post {
 
     public String getContent() {
         return content;
+    }
+
+    public User getAuthor() {
+        return author;
     }
 
     public void setTitle(String title) {
