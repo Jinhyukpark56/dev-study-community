@@ -1,5 +1,21 @@
 # 진행 기록
 
+## 현재 상태 — 2026-10-20
+
+- `origin/main`의 `5d63aa8`을 기준으로 `feature/v0.1-release-completion`에서 v0.1 잔여 기능을 구현했다. 현재 통합 코드 리뷰 대기 상태이며 `main`에는 병합하지 않았다.
+- 댓글: Comment Entity·Repository·Service·Controller와 응답 객체를 추가했다. 공개 조회, 인증 사용자 작성, 작성자 PK 기반 수정·삭제, URL의 `postId`와 실제 댓글 소속 불일치 404, 내용 Validation을 구현했다.
+- 게시글 삭제: 같은 transaction에서 연관 댓글을 bulk delete한 뒤 Post를 삭제한다. 성공 시 User와 공유 Tag는 유지하고, Post 삭제를 실패시킨 테스트에서는 먼저 삭제한 댓글도 rollback되는 것을 확인했다.
+- 태그·유형·시각: Post에 `QUESTION`/`STUDY_LOG`, `Instant` 생성·수정 시각, Tag 다대다 관계를 추가했다. 태그 이름은 공백과 대소문자를 정규화하고 기존 태그를 재사용하며 글당 최대 3개로 제한한다. `post_tags` 조합과 Tag 이름에는 unique 제약을 둔다.
+- 페이지 조회: `GET /posts`를 `content/page/size/totalPages/totalElements` 응답으로 바꾸고 `page=0`, `size=20`, `tag` filter를 추가했다. 정렬은 생성 시각 내림차순(null은 뒤), ID 내림차순이며 page는 0 이상, size는 1~50이다.
+- 최소 UI: 같은 origin의 정적 HTML·CSS·JavaScript로 회원가입, 로그인·로그아웃, 게시글·댓글 CRUD, 태그별 조회와 페이지 이동을 연결했다. 로그인 User ID와 작성자 ID가 일치할 때만 편집 버튼을 표시하고, 서버 권한 검사는 그대로 유지한다.
+- 상태 확인: `/health`는 process liveness로 유지하고, DB에 `select 1`을 실행하는 `/ready`를 readiness로 추가했다. `/auth/me`는 현재 User의 `id`와 `email`을 반환한다.
+- 배포 준비: PostgreSQL driver와 env 기반 prod profile, `.env.example`, Dockerfile, `.dockerignore`, LF 고정 설정과 배포 절차를 추가했다. prod에서는 Open Session in View를 끄고 Secure·HttpOnly·SameSite=Lax Session cookie, 오류 상세 숨김과 graceful shutdown을 설정한다.
+- 자동 검증: 최종 `clean test bootJar --no-daemon`에서 10개 test suite, 60개 테스트가 모두 성공했다. 실패·오류·건너뜀은 0개이며 boot JAR 생성도 완료했다. 2026-09-30의 40개 성공은 이전 Authorization 마일스톤 수치다.
+- 브라우저 확인: 격리한 메모리 H2와 port 18080에서 화면·asset 200, 회원가입·로그인·`/auth/me`, type·쉼표 태그를 포함한 글 작성, 태그 filter, 댓글 작성·수정, 글과 연관 댓글 삭제, 로그아웃 뒤 `/auth/me` 401을 확인했다. 390×844 화면에서도 가로 overflow가 없었고 확인 서버는 종료했다.
+- Docker CLI는 있지만 daemon이 실행되지 않아 image build와 container runtime은 검증하지 못했다. 실제 PostgreSQL의 schema 생성·쿼리·transaction과 외부 HTTPS의 Secure cookie는 배포 전 smoke test가 필요하다.
+- 코드 감사에서 병합을 막는 결함은 확인되지 않았다. 후속 위험은 동시에 같은 새 태그를 처음 만드는 요청 중 하나가 unique 제약으로 500이 될 수 있는 점, 기존 DB의 `post_type/created_at/updated_at` migration·backfill, 공개 인증 endpoint의 rate limiting, memory Session의 재시작·다중 instance 한계다.
+- 이번 기록은 실제 구현과 검증 상태만 나타낸다. 새 코드에 대한 이해도나 학습 완료 여부는 통합 코드 리뷰에서 별도로 확인한다.
+
 ## 현재 상태 — 2026-09-30
 
 - Post 작성자 Authorization의 ChatGPT 실제 코드 리뷰와 사용자 이해 확인을 완료했다. `Post → User` 관계와 FK, Authentication 기반 작성자 지정, 작성자 PK 비교, Authorization 선확인, PostResponse, 401·403·404 및 CSRF 403 구분을 실제 코드로 검토했다.
