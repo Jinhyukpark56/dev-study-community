@@ -2,6 +2,7 @@ package com.jinhyuk.community.auth;
 
 import java.util.Map;
 
+import com.jinhyuk.community.user.User;
 import com.jinhyuk.community.user.UserService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -39,7 +40,10 @@ public class AuthController {
     }
 
     @GetMapping("/me")
-    public Map<String, String> me(Authentication authentication) {
-        return Map.of("email", authentication.getName());
+    public Map<String, Object> me(Authentication authentication) {
+        User currentUser = userService.findByEmail(authentication.getName()).orElseThrow();
+        return Map.of(
+                "id", currentUser.getId(),
+                "email", currentUser.getEmail());
     }
 }

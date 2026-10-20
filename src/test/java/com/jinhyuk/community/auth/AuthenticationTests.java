@@ -150,6 +150,8 @@ class AuthenticationTests {
         mvc.perform(get("/auth/me").session(session))
                 .andExpect(status().isOk())
                 .andExpect(authenticated().withUsername(EMAIL))
+                .andExpect(jsonPath("$.id").value(
+                        userRepository.findByEmail(EMAIL).orElseThrow().getId()))
                 .andExpect(jsonPath("$.email").value(EMAIL));
     }
 
