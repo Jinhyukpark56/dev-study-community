@@ -1,7 +1,6 @@
 package com.jinhyuk.community.post;
 
 import java.net.URI;
-import java.util.ArrayList;
 import java.util.List;
 
 import com.jinhyuk.community.user.User;
@@ -31,12 +30,15 @@ public class PostController {
     }
 
     @GetMapping
-    public List<PostResponse> findAllPosts() {
-        List<PostResponse> responses = new ArrayList<>();
-        for (Post post : postService.findAllPosts()) {
-            responses.add(PostResponse.from(post));
+    public ResponseEntity<PostPageResponse> findAllPosts(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String tag) {
+        try {
+            return ResponseEntity.ok(PostPageResponse.from(postService.findPosts(page, size, tag)));
+        } catch (IllegalArgumentException exception) {
+            return ResponseEntity.badRequest().build();
         }
-        return responses;
     }
 
     @GetMapping("/{id}")
@@ -52,14 +54,16 @@ public class PostController {
     public ResponseEntity<Void> createPost(
             @RequestParam String title,
             @RequestParam String content,
+            @RequestParam(defaultValue = "STUDY_LOG") PostType type,
+            @RequestParam(required = false) List<String> tags,
             Authentication authentication) {
         User currentUser = findCurrentUser(authentication);
         if (currentUser == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
-        Post post = new Post(title, content, currentUser);
-        if (!postService.addPost(post)) {
+        Post post = new Post(title, content, currentUser, type);
+        if (!postService.addPost(post, tags)) {
             return ResponseEntity.badRequest().build();
         }
 
@@ -71,13 +75,21 @@ public class PostController {
             @PathVariable Long id,
             @RequestParam String title,
             @RequestParam String content,
+            @RequestParam(required = false) PostType type,
+            @RequestParam(required = false) List<String> tags,
             Authentication authentication) {
         User currentUser = findCurrentUser(authentication);
         if (currentUser == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
-        PostOperationResult result = postService.updatePost(id, currentUser, title, content);
+        PostOperationResult result = postService.updatePost(
+                id,
+                currentUser,
+                title,
+                content,
+                type,
+                tags);
         return responseFor(result, HttpStatus.OK);
     }
 

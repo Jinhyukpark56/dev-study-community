@@ -123,8 +123,9 @@ class PostAuthorizationTests {
         mvc.perform(get("/posts"))
                 .andExpect(status().isOk())
                 .andExpect(unauthenticated())
-                .andExpect(jsonPath("$[0].authorId").value(owner.getId()))
-                .andExpect(jsonPath("$[0].password").doesNotExist());
+                .andExpect(jsonPath("$.content[0].authorId").value(owner.getId()))
+                .andExpect(jsonPath("$.content[0].password").doesNotExist())
+                .andExpect(jsonPath("$.totalElements").value(1));
     }
 
     @Test

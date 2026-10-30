@@ -40,11 +40,22 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers("/health", "/error", "/auth/register", "/auth/login", "/auth/csrf")
+                        .requestMatchers(
+                                "/",
+                                "/index.html",
+                                "/app.js",
+                                "/styles.css",
+                                "/favicon.ico",
+                                "/health",
+                                "/ready",
+                                "/error",
+                                "/auth/register",
+                                "/auth/login",
+                                "/auth/csrf")
                         .permitAll()
-                        .requestMatchers(HttpMethod.GET, "/posts", "/posts/**", "/comments", "/comments/**")
+                        .requestMatchers(HttpMethod.GET, "/posts", "/posts/**")
                         .permitAll()
-                        .requestMatchers("/auth/me", "/posts/**", "/comments/**")
+                        .requestMatchers("/auth/me", "/posts/**")
                         .authenticated()
                         .anyRequest()
                         .authenticated())
